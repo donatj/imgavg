@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+//	"io"
 	"log"
 	"image"
 	"flag"
@@ -10,7 +11,8 @@ import (
 	"path/filepath"
 )
 
-import _ "image/png"
+import "image/png"
+import "image/color"
 
 
 func Pic(dx int, dy int) [][][]uint64 {
@@ -22,7 +24,6 @@ func Pic(dx int, dy int) [][][]uint64 {
 		}
 	}
 	return pic
-	//return pic
 }
 
 func main() {
@@ -78,13 +79,32 @@ func main() {
 			file.Close()
 
 			n++
-			if(n > 3) {
-				break;
-			}
+			// if(n > 10) {
+			// 	break;
+			// }
 		}
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, len(avgdata), len(avgdata[0])));
 	_ = img
 
+	o := uint64(n);
+
+	for x := 0; x < len(avgdata); x++ {
+		for y := 0; y < len(avgdata[0]); y++ {
+			mycolor := color.RGBA{ uint8(avgdata[x][y][0] / o), uint8(avgdata[x][y][1] / o), uint8(avgdata[x][y][2] / o), 255 }
+			img.Set(x,y,mycolor)
+		}
+	}
+
+	f, err := os.OpenFile("x.png", os.O_CREATE | os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+
+	if err = png.Encode(f, img); err != nil {
+		log.Fatal(err)
+	}
+	
 }
