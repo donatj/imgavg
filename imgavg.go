@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"image/png"
 	"image/color"
+	//"runtime"
 )
 
 
@@ -40,6 +41,7 @@ func avgImageFromPictable( avgdata [][][]uint64, n int ) *image.RGBA {
 }
 
 func main() {
+	//runtime.GOMAXPROCS(4)
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -77,6 +79,7 @@ func main() {
 	picinit := false;
 
 	n := 0
+	c := make(chan string, 4)
 
 	for _, fi := range fi {
 		fname := fi.Name()
@@ -84,36 +87,45 @@ func main() {
 			n++
 			fmt.Println("Loading", fname)
 
-			file, err := os.Open(dirname + fname)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			m, _, err := image.Decode(file)
-			if err != nil {
-				log.Fatal(err)
-			}
-			bounds := m.Bounds()
-
-			if !picinit {
-				avgdata = pictable(bounds.Max.X + 2, bounds.Max.Y + 2)
-				picinit = true;
-			}
-
-			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-				for x := bounds.Min.X; x < bounds.Max.X; x++ {
-					r, g, b, _ := m.At(x, y).RGBA()
-					avgdata[x][y][0] += uint64((float32(r) / 65535) * 255)
-					avgdata[x][y][1] += uint64((float32(g) / 65535) * 255)
-					avgdata[x][y][2] += uint64((float32(b) / 65535) * 255)
+			go func(c chan string){
+				file, err := os.Open(dirname + fname)
+				if err != nil {
+					log.Fatal(err)
 				}
-			}
 
-			file.Close()
-			if(n > 10) {
-				break;
-			}
+				m, _, err := image.Decode(file)
+				if err != nil {
+					log.Fatal(err)
+				}
+				bounds := m.Bounds()
+
+				if !picinit {
+					avgdata = pictable(bounds.Max.X + 2, bounds.Max.Y + 2)
+					picinit = true;
+				}
+
+				for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+					for x := bounds.Min.X; x < bounds.Max.X; x++ {
+						r, g, b, _ := m.At(x, y).RGBA()
+						avgdata[x][y][0] += uint64((float32(r) / 65535) * 255)
+						avgdata[x][y][1] += uint64((float32(g) / 65535) * 255)
+						avgdata[x][y][2] += uint64((float32(b) / 65535) * 255)
+					}
+				}
+
+				file.Close()				
+				c <- fname
+			}(c)
 		}
+
+		if(n > 4) {
+			for ll := 0; ll < n; ll++ {
+				fmt.Println( ll )
+				fmt.Println( <-c )
+			}
+			n = 0
+		}
+
 	}
 
 	img := avgImageFromPictable(avgdata, n)
