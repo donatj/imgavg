@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"image/jpeg"
+	"image/gif"
 	"log"
 	"os"
 	"path/filepath"
@@ -38,7 +40,7 @@ func avgImageFromPictable(avgdata [][][]uint64, n int) *image.RGBA {
 	return img
 }
 
-func main() {
+func init() {
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
@@ -46,6 +48,12 @@ func main() {
 		os.Exit(0)
 	}
 
+	image.RegisterFormat("png", "png", png.Decode, png.DecodeConfig)
+	image.RegisterFormat("jpeg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
+	image.RegisterFormat("gif", "gif", gif.Decode, gif.DecodeConfig)
+}
+
+func main() {
 	outputfile := ""
 	if flag.NArg() > 1 {
 		outputfile = flag.Arg(1)
@@ -79,7 +87,7 @@ func main() {
 
 	for _, fi := range fi {
 		fname := fi.Name()
-		if !fi.IsDir() && fname[0] != '.' && strings.HasSuffix(fname, ".png") {
+		if !fi.IsDir() && fname[0] != '.' && (strings.HasSuffix(fname, ".png") || strings.HasSuffix(fname, ".jpg") || strings.HasSuffix(fname, ".jpeg") || strings.HasSuffix(fname, ".gif")) {
 			n++
 			fmt.Println("Loading", fname)
 
