@@ -117,9 +117,6 @@ func main() {
 			}
 
 			file.Close()
-			if n > 10 {
-				break
-			}
 		}
 	}
 
