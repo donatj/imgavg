@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/png"
-	"image/jpeg"
 	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"log"
 	"os"
 	"path/filepath"
@@ -41,11 +41,16 @@ func avgImageFromPictable(avgdata [][][]uint64, n int) *image.RGBA {
 }
 
 func init() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of %s [dir] [outputfile]:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		fmt.Println("usage: imgavg [dir] [outputfile]")
-		os.Exit(0)
+		flag.Usage()
+		os.Exit(2)
 	}
 
 	image.RegisterFormat("png", "png", png.Decode, png.DecodeConfig)
