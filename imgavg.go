@@ -10,8 +10,6 @@ import (
 	"image/png"
 	"log"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 func pictable(dx int, dy int) [][][]uint64 {
@@ -61,26 +59,24 @@ func init() {
 func main() {
 	outputfile := ""
 	if flag.NArg() > 1 {
-		outputfile = flag.Arg(1)
+		outputfile = flag.Arg(flag.NArg() - 1)
 	} else {
 		outputfile = "output.png"
 	}
 
+	inputfiles := flag.Args()
+	inputfiles = inputfiles[:len(inputfiles)-1]
+
+	fileList, err := getFiles(inputfiles)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fileList = filterFiles(fileList,
+		[]string{".png", ".jpg", ".jpeg", ".gif"})
+
 	// Lets create this before hand just in case so the user doesn't get screwed
 	f, err := os.OpenFile(outputfile, os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dirname := strings.TrimRight(flag.Arg(0), string(filepath.Separator)) + string(filepath.Separator)
-	fmt.Println(dirname)
-
-	d, err := os.Open(dirname)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fi, err := d.Readdir(-1)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -90,39 +86,36 @@ func main() {
 
 	n := 0
 
-	for _, fi := range fi {
-		fname := fi.Name()
-		if !fi.IsDir() && fname[0] != '.' && (strings.HasSuffix(fname, ".png") || strings.HasSuffix(fname, ".jpg") || strings.HasSuffix(fname, ".jpeg") || strings.HasSuffix(fname, ".gif")) {
-			n++
-			fmt.Println("Loading", fname)
+	for _, fname := range fileList {
+		n++
+		log.Println("Loading", fname)
 
-			file, err := os.Open(dirname + fname)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			m, _, err := image.Decode(file)
-			if err != nil {
-				log.Fatal(err)
-			}
-			bounds := m.Bounds()
-
-			if !picinit {
-				avgdata = pictable(bounds.Max.X+2, bounds.Max.Y+2)
-				picinit = true
-			}
-
-			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-				for x := bounds.Min.X; x < bounds.Max.X; x++ {
-					r, g, b, _ := m.At(x, y).RGBA()
-					avgdata[x][y][0] += uint64((float32(r) / 65535) * 255)
-					avgdata[x][y][1] += uint64((float32(g) / 65535) * 255)
-					avgdata[x][y][2] += uint64((float32(b) / 65535) * 255)
-				}
-			}
-
-			file.Close()
+		file, err := os.Open(fname)
+		if err != nil {
+			log.Fatal(err)
 		}
+
+		m, _, err := image.Decode(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		bounds := m.Bounds()
+
+		if !picinit {
+			avgdata = pictable(bounds.Max.X+2, bounds.Max.Y+2)
+			picinit = true
+		}
+
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			for x := bounds.Min.X; x < bounds.Max.X; x++ {
+				r, g, b, _ := m.At(x, y).RGBA()
+				avgdata[x][y][0] += uint64((float32(r) / 65535) * 255)
+				avgdata[x][y][1] += uint64((float32(g) / 65535) * 255)
+				avgdata[x][y][2] += uint64((float32(b) / 65535) * 255)
+			}
+		}
+
+		file.Close()
 	}
 
 	img := avgImageFromPictable(avgdata, n)
