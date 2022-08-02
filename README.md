@@ -1,5 +1,7 @@
 # Image Average Generator
 
+[![CI](https://github.com/donatj/imgavg/actions/workflows/ci.yml/badge.svg)](https://github.com/donatj/imgavg/actions/workflows/ci.yml)
+
 Adds a directory of images together, pixel by pixel, and divides by the number of images to generate an average.
 
 Licensed under the [MIT license](http://www.opensource.org/licenses/mit-license.php).
