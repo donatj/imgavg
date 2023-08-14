@@ -92,12 +92,12 @@ func main() {
 
 		file, err := os.Open(fname)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(fname, " ", err)
 		}
 
 		m, _, err := image.Decode(file)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(fname, " ", err)
 		}
 		bounds := m.Bounds()
 
