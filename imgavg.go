@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/gif"
-	"image/jpeg"
+	_ "image/gif"
+	_ "image/jpeg"
 	"image/png"
 	"log"
 	"os"
@@ -50,10 +50,6 @@ func init() {
 		flag.Usage()
 		os.Exit(2)
 	}
-
-	image.RegisterFormat("png", "png", png.Decode, png.DecodeConfig)
-	image.RegisterFormat("jpeg", "jpeg", jpeg.Decode, jpeg.DecodeConfig)
-	image.RegisterFormat("gif", "gif", gif.Decode, gif.DecodeConfig)
 }
 
 func main() {
