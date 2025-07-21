@@ -57,11 +57,9 @@ func init() {
 }
 
 func main() {
-	outputfile := ""
+	outputfile := "output.png"
 	if flag.NArg() > 1 {
 		outputfile = flag.Arg(flag.NArg() - 1)
-	} else {
-		outputfile = "output.png"
 	}
 
 	inputfiles := flag.Args()
