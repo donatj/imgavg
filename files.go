@@ -17,6 +17,7 @@ func getFiles(paths []string) ([]string, error) {
 		}
 
 		fi, err := file.Stat()
+		file.Close()
 		if err != nil {
 			return fileList, err
 		}
@@ -45,7 +46,6 @@ func getFiles(paths []string) ([]string, error) {
 			fileList = append(fileList, fpath)
 		}
 
-		file.Close()
 
 	}
 
