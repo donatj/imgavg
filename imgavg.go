@@ -10,28 +10,45 @@ import (
 	"image/png"
 	"log"
 	"os"
+	"runtime"
+	"sync"
+
+	"github.com/schollz/progressbar/v3"
 )
 
-func pictable(dx int, dy int) [][][]uint64 {
-	pic := make([][][]uint64, dx) /* type declaration */
-	for i := range pic {
-		pic[i] = make([][]uint64, dy) /* again the type? */
-		for j := range pic[i] {
-			pic[i][j] = []uint64{0, 0, 0}
-		}
-	}
-	return pic
+type pictable struct {
+	data   []uint64 // R,G,B,R,G,B...
+	dx, dy int
 }
 
-func avgImageFromPictable(avgdata [][][]uint64, n int) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, len(avgdata), len(avgdata[0])))
+func newPictable(dx, dy int) pictable {
+	return pictable{
+		data: make([]uint64, dx*dy*3),
+		dx:   dx,
+		dy:   dy,
+	}
+}
 
-	o := uint64(n)
+func (p pictable) add(x, y int, r, g, b uint32) {
+	i := (y*p.dx + x) * 3
+	p.data[i] += uint64(r >> 8)
+	p.data[i+1] += uint64(g >> 8)
+	p.data[i+2] += uint64(b >> 8)
+}
 
-	for x := 0; x < len(avgdata); x++ {
-		for y := 0; y < len(avgdata[0]); y++ {
-			mycolor := color.RGBA{uint8(avgdata[x][y][0] / o), uint8(avgdata[x][y][1] / o), uint8(avgdata[x][y][2] / o), 255}
-			img.Set(x, y, mycolor)
+func avgImageFromPictable(p pictable, n int) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, p.dx, p.dy))
+	div := uint64(n)
+
+	for y := 0; y < p.dy; y++ {
+		for x := 0; x < p.dx; x++ {
+			i := (y*p.dx + x) * 3
+			img.Set(x, y, color.RGBA{
+				R: uint8(p.data[i] / div),
+				G: uint8(p.data[i+1] / div),
+				B: uint8(p.data[i+2] / div),
+				A: 255,
+			})
 		}
 	}
 
@@ -58,64 +75,78 @@ func main() {
 		outputfile = flag.Arg(flag.NArg() - 1)
 	}
 
-	inputfiles := flag.Args()
-	inputfiles = inputfiles[:len(inputfiles)-1]
+	inputfiles := flag.Args()[:len(flag.Args())-1]
 
 	fileList, err := getFiles(inputfiles)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fileList = filterFiles(fileList,
-		[]string{".png", ".jpg", ".jpeg", ".gif"})
+	fileList = filterFiles(fileList, []string{".png", ".jpg", ".jpeg", ".gif"})
 
-	// Lets create this before hand just in case so the user doesn't get screwed
 	f, err := os.OpenFile(outputfile, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer f.Close()
 
-	avgdata := [][][]uint64{}
-	picinit := false
+	var (
+		avgdata pictable
+		n       int
+	)
 
-	n := 0
+	images := make(chan image.Image, len(fileList))
+	files := make(chan string, len(fileList))
+
+	var wg sync.WaitGroup
+	for i := 0; i < runtime.NumCPU()*2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for fname := range files {
+				file, err := os.Open(fname)
+				if err != nil {
+					log.Fatal(fname, " ", err)
+				}
+				m, _, err := image.Decode(file)
+				file.Close()
+				if err != nil {
+					log.Fatal(fname, " ", err)
+				}
+				images <- m
+			}
+		}()
+	}
 
 	for _, fname := range fileList {
+		files <- fname
+	}
+	close(files)
+
+	go func() {
+		wg.Wait()
+		close(images)
+	}()
+
+	bar := progressbar.Default(int64(len(fileList)))
+	for m := range images {
 		n++
-		log.Println("Loading", fname)
-
-		file, err := os.Open(fname)
-		if err != nil {
-			log.Fatal(fname, " ", err)
-		}
-
-		m, _, err := image.Decode(file)
-		if err != nil {
-			log.Fatal(fname, " ", err)
-		}
 		bounds := m.Bounds()
+		_ = bar.Add(1)
 
-		if !picinit {
-			avgdata = pictable(bounds.Max.X+2, bounds.Max.Y+2)
-			picinit = true
+		if avgdata.data == nil {
+			avgdata = newPictable(bounds.Max.X+2, bounds.Max.Y+2)
 		}
 
 		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 			for x := bounds.Min.X; x < bounds.Max.X; x++ {
 				r, g, b, _ := m.At(x, y).RGBA()
-				avgdata[x][y][0] += uint64((float32(r) / 65535) * 255)
-				avgdata[x][y][1] += uint64((float32(g) / 65535) * 255)
-				avgdata[x][y][2] += uint64((float32(b) / 65535) * 255)
+				avgdata.add(x, y, r, g, b)
 			}
 		}
-
-		file.Close()
 	}
 
-	img := avgImageFromPictable(avgdata, n)
-
-	if err = png.Encode(f, img); err != nil {
+	if err := png.Encode(f, avgImageFromPictable(avgdata, n)); err != nil {
 		log.Fatal(err)
 	}
-
 }

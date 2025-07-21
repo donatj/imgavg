@@ -22,33 +22,25 @@ func getFiles(paths []string) ([]string, error) {
 			return fileList, err
 		}
 
-		switch mode := fi.Mode(); {
-		case mode.IsDir():
-			// Walk is recursive
-			filepath.Walk(imgpath, func(path string, f os.FileInfo, err error) error {
-
-				submode := f.Mode()
-				if submode.IsRegular() {
-					fpath, _ := filepath.Abs(path)
-
-					base := filepath.Base(fpath)
-					if string(base[0]) == "." {
-						return nil
-					}
-
-					fileList = append(fileList, fpath)
+		if fi.IsDir() {
+			filepath.Walk(imgpath, func(path string, fInfo os.FileInfo, _ error) error {
+				if fInfo.Mode().IsRegular() && !strings.HasPrefix(filepath.Base(path), ".") {
+					p, _ := filepath.Abs(path)
+					fileList = append(fileList, p)
 				}
-
 				return nil
 			})
-		case mode.IsRegular():
-			fpath, _ := filepath.Abs(imgpath)
-			fileList = append(fileList, fpath)
+
+			continue
 		}
 
+		if !fi.Mode().IsRegular() {
+			continue
+		}
 
+		p, _ := filepath.Abs(imgpath)
+		fileList = append(fileList, p)
 	}
-
 	return fileList, nil
 }
 
